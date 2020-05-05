@@ -1,34 +1,30 @@
 import tkinter as tk
-from tkinter import *
+#from tkinter import *
 from tkinter import ttk, filedialog
 from PIL import ImageTk, Image, ImageGrab
 import math
 import os
 
 
-class Root(tk.Toplevel):
-    
-    def __init__(self):
-        super(Root, self).__init__()
+class App(tk.Tk): 
+    def __init__(self): 
+        super().__init__() 
+        
+        self.addMenu()
+
         self.canvas = tk.Canvas(self, width=0, height=0)
         #self.protocol("WM_DELETE_WINDOW", self.canvas)
         self.canvas.grid(row = 1, column = 3,columnspan=8, rowspan=8, sticky = "n", pady = 2,padx = 2)
         self.geometry("-5+0")
-        # self.attributes("-fullscreen", True)
+        #self.attributes("-fullscreen", True)
         # print(self.winfo_screenwidth())
         self.canvas.config(cursor="cross",relief="ridge")
         
-
-        # self.bboxbut = ttk.Button(self,text = "Bounding Box")
-        #self.bboxbut.grid(column=0,row=0)
-        #self.paintbut = ttk.Button(self,text = "Paint Box")
-        #self.paintbut.grid(column=0,row=1)
-        #self.but = Label (self,text="Bounding Box")
-        #self.but.pack(side=BOTTOM)
         
         self.canvas.old_mask_coords = None
         self.canvas.old_box_coords = None
         self.canvas_tmp_box = None
+        self.canvas_tmp_poly = None
         self.clicked = False
         
         self.classes = []
@@ -50,7 +46,7 @@ class Root(tk.Toplevel):
         self.loadImg()
         self.loadClasses()
         
-        self.annotating = False
+        self.onCanvas = False
         
         
         
@@ -76,10 +72,29 @@ class Root(tk.Toplevel):
 
 
     def startAnnotating(self, event):
-        self.annotating = True
+        self.onCanvas = True
 
     def stopAnnotating(self, event):
-        self.annotating = False
+        self.onCanvas = False
+        
+    def addMenu(self):
+        
+        self.menubar = tk.Menu(self)
+        self.prefmenu = tk.Menu(self.menubar, tearoff=0)
+        self.polygonTouch = tk.BooleanVar()
+        self.polygonTouch.set(False)
+        self.prefmenu.add_checkbutton(label="Polygon Touchscreen Mode", onvalue=1, offvalue=0, variable=self.polygonTouch)
+        # self.prefmenu.add_command(label="New", command="")
+        # self.prefmenu.add_command(label="Open", command="")
+        # self.prefmenu.add_command(label="Save", command="")
+        # self.prefmenu.add_separator()
+        # self.prefmenu.add_command(label="Exit", command=self.quit)
+        self.menubar.add_cascade(label="Preferences", menu=self.prefmenu)
+        # self.helpmenu = tk.Menu(self.menubar, tearoff=0)
+        # self.helpmenu.add_command(label="Help Index", command="")
+        # self.helpmenu.add_command(label="About...", command="")
+        # self.menubar.add_cascade(label="Help", menu=self.helpmenu)
+        self.config(menu=self.menubar)
         
         
     def loadButtons(self):
@@ -99,17 +114,17 @@ class Root(tk.Toplevel):
         self.zoomIn.grid(row = 3, column = 0,columnspan=1, sticky = "nesw", pady = 5, padx = 5) 
         self.zoomOut.grid(row = 3, column = 1,columnspan=1, sticky = "nesw", pady = 5, padx = 5)
         
-        self.zoomIn.bind("<Button-1>", self.maskBind)
+        self.zoomIn.bind("<Button-1>", self.polyBind)
         self.zoomOut.bind("<Button-1>", self.boxBind)
         
         
 
-        self.maskBtn = ttk.Button (self,text="Mask Creation Tool")
+        self.polyBtn = ttk.Button (self,text="Polygon Creation Tool")
         self.boxBtn = ttk.Button (self,text="Box Creation Tool")
-        self.maskBtn.grid(row = 5, column = 0,columnspan=2, sticky = "nesw", pady = 5, padx = 5) 
+        self.polyBtn.grid(row = 5, column = 0,columnspan=2, sticky = "nesw", pady = 5, padx = 5) 
         self.boxBtn.grid(row = 4, column = 0,columnspan=2, sticky = "nesw", pady = 5, padx = 5)
         
-        self.maskBtn.bind("<Button-1>", self.maskBind)
+        self.polyBtn.bind("<Button-1>", self.polyBind)
         self.boxBtn.bind("<Button-1>", self.boxBind)
 
 
@@ -138,7 +153,7 @@ class Root(tk.Toplevel):
         
         self.objectList = tk.Listbox(self,exportselection=0)
         self.objectList.grid(row = 1, column = 12,columnspan=2, rowspan = 3, sticky = "nesw", pady = 5, padx = 5) 
-        self.objScrollbar = Scrollbar(self)
+        self.objScrollbar = tk.Scrollbar(self)
         self.objScrollbar.grid(row = 1, column = 14,columnspan=1, rowspan = 3, sticky = "nes")
 
         self.objectList.config(yscrollcommand=self.objScrollbar.set)
@@ -147,7 +162,7 @@ class Root(tk.Toplevel):
         
         self.frameList = tk.Listbox(self,exportselection=0)
         self.frameList.grid(row = 6, column = 12,columnspan=2, rowspan = 3, sticky = "nesw", pady = 5, padx = 5) 
-        self.frameScrollbar = Scrollbar(self)
+        self.frameScrollbar = tk.Scrollbar(self)
         self.frameScrollbar.grid(row = 6, column = 14,columnspan=1, rowspan = 3, sticky = "nes")
 
         self.frameList.config(yscrollcommand=self.frameScrollbar.set)
@@ -199,7 +214,7 @@ class Root(tk.Toplevel):
         
         
     
-    def maskBind(self,event):
+    def polyBind(self,event):
         self.bind('<Motion>', self.masking)
         self.mode = "mask"
             
@@ -277,13 +292,17 @@ class Root(tk.Toplevel):
         
     def masking(self,event):
         self.setClass()
-        if self.annotating:
+        if self.onCanvas:
             if self.clicked:
                 x, y = event.x, event.y
                 self.currentMask.append([x,y])
-                self.canvas.create_polygon(self.currentMask, fill=self.color)
+                if self.canvas_tmp_poly:
+                    self.canvas.delete(self.canvas_tmp_poly)
+                self.canvas_tmp_poly = self.canvas.create_polygon(self.currentMask, fill=self.color)
             else:
                 if len(self.currentMask) > 0:
+                    if self.canvas_tmp_poly:
+                        self.canvas.delete(self.canvas_tmp_poly)
                     poly = self.canvas.create_polygon(self.currentMask, fill=self.color)
                     tmpMaskObj = []
                     for point in self.currentMask:
@@ -301,8 +320,8 @@ class Root(tk.Toplevel):
             
             
     def boxing(self,event,point):
-        if self.annotating:
-                    
+        
+        if self.onCanvas:
             if point == "click":
                 x, y = event.x, event.y
                 self.canvas.old_box_coords = x, y
@@ -333,8 +352,7 @@ class Root(tk.Toplevel):
         
     
     def mouseClicked(self,event):
-        if self.annotating:
-            #print(self.classList.curselection())
+        if self.onCanvas:
             if self.clicked == True:
                 self.clicked = False
                 self.canvas.old_coords = None
@@ -354,19 +372,18 @@ class Root(tk.Toplevel):
         if 'alpha' in kwargs:
             alpha = int(kwargs.pop('alpha') * 255)
             fill = kwargs.pop('fill')
-            fill = root.winfo_rgb(fill) + (alpha,)
+            fill = self.winfo_rgb(fill) + (alpha,)
             image = Image.new('RGBA', (abs(x2-x1), abs(y2-y1)), fill)
             self.images.append(ImageTk.PhotoImage(image))
             self.canvas.create_image(min(x1,x2), min(y1,y2), image=self.images[-1], anchor='nw')
         #self.canvas.create_rectangle(x1, y1, x2, y2, **kwargs)
     
-if __name__=="__main__":
     
-    root = Root()
-    #root = Tk()
-    #top = tk.Toplevel(root)
-    root.iconbitmap("icon.ico")
-    root.title("Multi Source Labeller")
-    #top.withdraw()
-    root.mainloop()
+    
+    
+if __name__=="__main__":
+    app = App() 
+    app.title("Multi-Labeller") 
+    app.iconbitmap("icon.ico")
+    app.mainloop()   
     
