@@ -18,7 +18,7 @@ class App(tk.Tk):
         self.canvas.grid(row = 1, column = 3,columnspan=8, rowspan=8, sticky = "n", pady = 2,padx = 2)
         #self.attributes("-fullscreen", True)
         # print(self.winfo_screenwidth())
-        self.canvas.config(cursor="cross",relief="ridge")
+        self.canvas.config(cursor="crosshair",relief="ridge")
         
         self.sourceSel = tk.IntVar()
         self.canvas.old_mask_coords = None
@@ -40,7 +40,7 @@ class App(tk.Tk):
         self.zoomBox = None
         self.zImg = None
         self.zCanvasImg = None
-        self.zoomFactor = 1
+        self.zoomFactor = 2
         
         
         self.masksVisible = True
@@ -77,6 +77,7 @@ class App(tk.Tk):
         self.bind('<ButtonPress-1>', self.mouseClicked)
         self.bind('<ButtonRelease-1>', self.mouseClicked)
     
+        self.bind('<Escape>',self.resetAll)
 
 
 
@@ -186,7 +187,7 @@ class App(tk.Tk):
         self.objectList.config(yscrollcommand=self.objScrollbar.set)
         self.objScrollbar.config(command=self.objectList.yview)
         self.objectList.bind('<<ListboxSelect>>', self.editCurrent)
-
+        self.canvas.bind('<Double-Button-1>', self.doubleClickEdit)
 
         self.frameListLabel1 = ttk.Label(self,text="Source 1:")
         self.frameListLabel1.grid(row = 5, column = 12,columnspan=1, sticky = "s") 
@@ -575,7 +576,7 @@ class App(tk.Tk):
         
                         rectCoord = f"{round(float(items[2]),2)},{round(float(items[3]),2)},{round(float(items[4]),2)},{round(float(items[5][:-1]),2)}"
                         self.objects.append((items[0],"box", items[1],rectCoord)) # Adding to object[]
-                        self.objectList.insert(int(items[0])-1,(items[0],"box",items[1])) 
+                        self.objectList.insert(str(int(items[0])-1),(items[0],"box",items[1])) 
                         self.boxes.append(self.create_rectangle(float(items[2])*self.xRat,float(items[3])*self.yRat,float(items[4])*self.xRat,float(items[5][:-1])*self.yRat,width=2,fill=self.color,tags=str(items[0])+"tag",alpha=0.3)) # Create final box)
             
             if os.path.isfile(fileM):
@@ -598,7 +599,7 @@ class App(tk.Tk):
         
                         self.objects.append((items[0],"mask",items[1],tmpMaskObj))
                         self.currentMask = [] # Clear currentMask
-                        self.objectList.insert(int(items[0])-1,(items[0],"mask",items[1])) # Add polygon to objectlist
+                        self.objectList.insert(str(int(items[0])-1),(items[0],"mask",items[1])) # Add polygon to objectlist
     
                     # self.objects.append([items[0],'mask',items[1]
                     #             self.objects.append((self.objectList.size(),"mask",self.currClass.split(' ')[0],tmpMaskObj))
@@ -639,8 +640,6 @@ class App(tk.Tk):
         self.bind('<Motion>', lambda event, mode="motion": 
                             self.boxing(event,mode))
         self.mode = "box"
-        
-
             
         
     # Called from the <motion> event when the mask tool is selected    
@@ -677,7 +676,7 @@ class App(tk.Tk):
 
 
 
-   # Called from the <Clicked>, <Release> & <Motion> events when the mask tool is selected    
+   # Called from the <Clicked> & <Motion> events when the mask tool is selected    
     def masking(self,event, mode):
         self.setClass() 
         if self.onCanvas:   # If the cursor is over the canvas
@@ -690,7 +689,7 @@ class App(tk.Tk):
                     distance = self.calculateDistance(self.currentMask[0][0],self.currentMask[0][1],event.x,event.y)
                     if distance < 10:
                         self.currentMask.pop()
-                        self.currentMask.append(self.currentMask[0])
+                        #self.currentMask.append(self.currentMask[0])
                         if self.canvas_tmp_poly: # Delete the temp poly
                             self.canvas.delete(self.canvas_tmp_poly)
                             
@@ -813,11 +812,11 @@ class App(tk.Tk):
             for i in range(max(ids)): 
                 
                 if i+1 != ids[i]: # Make sure they increment in 1s, if not return i+1 as ID
-                    return i+1
+                    return str(i+1)
         else:
-            return 1 # If objects has no length then return ID as 1
+            return str(1) # If objects has no length then return ID as 1
                 
-        return max(ids)+1 # If all increments correctly, return max number incremented
+        return str(max(ids)+1) # If all increments correctly, return max number incremented
         
         
         
@@ -922,7 +921,7 @@ class App(tk.Tk):
                 self.zImg = None
             if self.zCanvasImg is not None:
                 self.canvas.delete(self.zCanvasImg) 
-                self.canvas.update_idletasks()
+                #self.canvas.update_idletasks()
             zoom = float(kwargs.pop('zoom'))
             x = float(kwargs.pop('x'))
             y = float(kwargs.pop('y'))
@@ -932,11 +931,21 @@ class App(tk.Tk):
             wW,wH = screenShot.size
             swW = self.winfo_screenwidth()
             scaling = wW/swW
-            x1=(self.canvas.winfo_rootx()*scaling) + (float(x)*scaling) - ((size*zoom)/2)
-            y1=(self.canvas.winfo_rooty()*scaling) + (float(y)*scaling) - ((size*zoom)/2)
-            x2=(self.canvas.winfo_rootx()*scaling) + (float(x)*scaling) + ((size*zoom)/2)
-            y2=(self.canvas.winfo_rooty()*scaling) + (float(y)*scaling) + ((size*zoom)/2)
-            self.zImg = ImageTk.PhotoImage(screenShot.crop((x1,y1,x2,y2)).resize((size,size)))
+            # x1=(self.canvas.winfo_rootx()*scaling) + (float(x)*scaling) - ((size*zoom)/2)
+            # y1=(self.canvas.winfo_rooty()*scaling) + (float(y)*scaling) - ((size*zoom)/2)
+            # x2=(self.canvas.winfo_rootx()*scaling) + (float(x)*scaling) + ((size*zoom)/2)
+            # y2=(self.canvas.winfo_rooty()*scaling) + (float(y)*scaling) + ((size*zoom)/2)
+            # self.zImg = ImageTk.PhotoImage(screenShot.crop((x1,y1,x2,y2)).resize((size,size)))
+            size = 30
+            zoom = 0.5
+            x1=(float(x)) - ((size*zoom)/2)
+            y1=(float(y)) - ((size*zoom)/2)
+            x2=(float(x)) + ((size*zoom)/2)
+            y2=(float(y)) + ((size*zoom)/2)
+            img = self.resizedImg.crop((x1,y1,x2,y2)).resize((size,size))
+            #img.show()
+            self.zImg = ImageTk.PhotoImage(img)
+            
             self.zCanvasImg = self.canvas.create_image(x-(size/2), y-(size/2), image=self.zImg, anchor='nw')
             #self.zoomBox = self.canvas.create_image(x-(size/2), y-(size/2), image=self.zImg, anchor='nw')
                      
@@ -946,8 +955,36 @@ class App(tk.Tk):
          dist = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)  
          return dist  
     
-    
-    
+    def resetAll(self,event):
+        if self.mode == "edit":
+            self.removeEditing()
+        # else:
+        #     self.sourceSel = tk.IntVar()
+        #     self.canvas.old_mask_coords = None
+        #     self.canvas.origin_box_coords = None
+        #     self.canvas_tmp_box = None
+        #     self.canvas_tmp_poly = None
+        #     self.canvas_tmp_poly_origin = None
+        #     self.clicked = False
+        #     self.vertices = []
+        #     self.tmpCoords = []
+        #     self.indexTempCoords = None
+        #     self.zoomEnable = False
+        #     self.zoomBox = None
+        #     self.zImg = None
+        #     self.zCanvasImg = None
+        #     self.zoomFactor = 2
+        #     self.masksVisible = True
+        #     self.images = []
+        #     self.polygons = []
+        #     self.boxes = []
+        #     self.currentMask = []
+        #     self.objects = []
+            
+        #     self.loadImg()
+        #     self.boxBind(event)
+            
+            
     
     def delCurrObject(self,event):
         
@@ -979,8 +1016,15 @@ class App(tk.Tk):
         self.removeEditing()
         
 
-
-
+    def doubleClickEdit(self,event):
+        item = self.canvas.find_closest(event.x, event.y)
+        tags = self.canvas.gettags(item)
+        
+        for i in range(len(self.objectList.get(0,"end"))):
+            if str(self.objectList.get(i)[0])+"tag" == tags[0]:
+                self.objectList.selection_clear(0,"end")
+                self.objectList.select_set(i)
+                self.editCurrent(event)
     
     def editCurrent(self,event):
         
@@ -1007,7 +1051,29 @@ class App(tk.Tk):
         self.setClass()
         tag =(str(listInfo[0])+"tag",) # Generate tag specific to that object
         #item = self.canvas.find_withtag(tag) 
-        coords = self.canvas.coords(tag)  # Find coords of that object     
+        #coords = self.canvas.coords(tag)  # Find coords of that object     
+        for obj in self.objects:
+            if tag[0] == str(str(obj[0]) + "tag"):
+                #print(listInfo)
+                if listInfo[1] == 'box':
+                    coords = []
+                    coords.append(float(obj[3].split(',')[0])*self.xRat)
+                    coords.append(float(obj[3].split(',')[1])*self.yRat)
+                    coords.append(float(obj[3].split(',')[2])*self.xRat)
+                    coords.append(float(obj[3].split(',')[3])*self.yRat)
+                    
+                elif listInfo[1] == 'mask':
+                    points = [i for i in obj[3].split(',')]
+                    sepPoints = [i.split('_') for i in points]
+                    coords = []
+                    for i in sepPoints:
+                        if len(i) == 2:
+                            coords.append([float(i[0])*self.xRat,float(i[1])*self.yRat])
+                    #print(coords)
+                    #coords = [(float(i.split('_')[0])*self.xRat,float(i.split('_')[1])*self.yRat) for i in points]
+                
+                    
+                
         self.canvas.delete(tag)
         
         if listInfo[1] == 'box' and len(coords) == 4:
@@ -1016,23 +1082,23 @@ class App(tk.Tk):
             nX = coords[2]
             nY = coords[3]
             self.tmpCoords = coords
-            self.editingBox = self.create_rectangle(oX,oY,nX,nY,width=0,fill=self.color,tags=tag,alpha=0.2)
+            self.editingBox = self.create_rectangle(oX,oY,nX,nY,fill=self.color,tags=tag,alpha=0.2)
             self.vertices.append(self.canvas.create_oval(coords[0]-3,
                                                                 coords[1]-3,
                                                                 coords[0]+3,
-                                                                coords[1]+3, fill = "black",width=1,outline="white"))
+                                                                coords[1]+3, fill = "black",width=2,outline="white"))
             self.vertices.append(self.canvas.create_oval(coords[2]-3,
                                                                 coords[3]-3,
                                                                 coords[2]+3,
-                                                                coords[3]+3, fill = "black",width=1,outline="white"))
+                                                                coords[3]+3, fill = "black",width=2,outline="white"))
         elif listInfo[1] == 'mask':
             self.tmpCoords = coords
             self.editingPoly = self.create_polygon(coords, fill=self.color, tags=tag,alpha=0.2)
-            for point in range(0,len(coords),2):
-                self.vertices.append(self.canvas.create_oval(coords[point]-3,
-                                                          coords[point+1]-3,
-                                                          coords[point]+3,
-                                                          coords[point+1]+3, fill = "black",width=1,outline="white"))
+            for point in coords:    #range(0,len(coords),1):
+                self.vertices.append(self.canvas.create_oval(point[0]-3,
+                                                          point[1]-3,
+                                                          point[0]+3,
+                                                          point[1]+3, fill = "black",width=2,outline="white"))
             
                 
         
@@ -1048,6 +1114,8 @@ class App(tk.Tk):
         if clickType == "click":
             if self.onCanvas:
                 self.setClass()
+                
+                
                 if self.editingBox:
                     vX = [self.tmpCoords[0],self.tmpCoords[2]]
                     vY = [self.tmpCoords[1],self.tmpCoords[3]]
@@ -1080,16 +1148,14 @@ class App(tk.Tk):
                 if self.editingPoly:
                     
                     dists = []
-                    for c in range(0, len(self.tmpCoords),2):
-                        d = self.calculateDistance(x,y,self.tmpCoords[c],self.tmpCoords[c+1])
+                    for c in self.tmpCoords:     # range(0, len(self.tmpCoords),1):
+                        d = self.calculateDistance(x,y,c[0],c[1])
                         dists.append(d)
-                    print(f"Length Tmp Coords b4: {len(self.tmpCoords)}")
+                    #print(f"Length Tmp Coords b4: {len(self.tmpCoords)}")
                     if min(dists) < 10:
-                        self.indexTempCoords = dists.index(min(dists))*2
-                        del self.tmpCoords[self.indexTempCoords:self.indexTempCoords+2]
+                        self.indexTempCoords = dists.index(min(dists))
+                        del self.tmpCoords[self.indexTempCoords]
                     
-                    print(f"Length Tmp Coords after: {len(self.tmpCoords)}")
-                    print(f"Index of Coord deleted: {self.indexTempCoords}")
                         
                         
                     if self.indexTempCoords is not None:
@@ -1105,7 +1171,7 @@ class App(tk.Tk):
                             if obj[0] == listInfo[0]:
                                 self.editedItemTag = obj[0]
                                 self.objects.remove(obj)
-                        print(f"ID: {self.editedItemTag}")
+                        #print(f"ID: {self.editedItemTag}")
                     
                         
                         
@@ -1145,8 +1211,7 @@ class App(tk.Tk):
                     if self.indexTempCoords is not None:
                         
                         tmpPoly = self.tmpCoords.copy()
-                        tmpPoly.append(float(x))
-                        tmpPoly.append(float(y))
+                        tmpPoly.insert(self.indexTempCoords,[float(x),float(y)])
                         
                         self.canvas.delete(self.editingPoly)
                         self.editingPoly = None
@@ -1198,8 +1263,7 @@ class App(tk.Tk):
                     if self.editingPoly:
                         
                         tmpPoly = self.tmpCoords.copy()
-                        tmpPoly.append(x)
-                        tmpPoly.append(y)
+                        tmpPoly.insert(self.indexTempCoords,[x,y])
                         
                         self.canvas.delete(self.editingBox)
                         self.editingBox = None
@@ -1208,15 +1272,15 @@ class App(tk.Tk):
                         
                         #self.polygons.append(self.canvas.create_polygon(tmpPoly, fill=self.color,tags=str(self.findNextID())+"tag")) # Make the new poly to stay on the canvas
                         tmpMaskObj = ""
-                        for i in range(0, len(tmpPoly),2): # Add Polygon points to a list to add to txt
-                            pntList = F"{round(tmpPoly[i]/self.xRat,2)}_{round(tmpPoly[i+1]/self.yRat,2)},"
+                        for i in tmpPoly:   # range(0, len(tmpPoly),2): # Add Polygon points to a list to add to txt
+                            pntList = F"{round(i[0]/self.xRat,2)}_{round(i[1]/self.yRat,2)},"
                             tmpMaskObj += pntList
                                 
                         self.objects.append([self.editedItemTag,"mask", self.currClass.split(' ')[0], tmpMaskObj]) # Adding to object[]
-                        #self.objectList.insert("end",(self.editedItemTag,"mask",self.currClass.split(' ')[0])) # Add to objectlist
+                        self.objectList.insert("end",(str(self.editedItemTag),"mask",self.currClass.split(' ')[0])) # Add to objectlist
                         self.editedItemTag = None
                         
-                        #self.addtotxt("mask")
+                        self.addtotxt("mask")
                         
                         self.removeEditing()
                         
@@ -1238,7 +1302,10 @@ class App(tk.Tk):
         if self.indexTempCoords is not None:
             self.indexTempCoords = None
         
+        self.editedItemTag = None
+        
         self.loadImg()
+        #self.polyBind() This stalls the program for some reason
         
             
             
@@ -1306,7 +1373,7 @@ class App(tk.Tk):
                     bottom = max(y1,y2)
                     
                     cropped = dispImg.crop((left,upper,right,bottom))
-                                        
+                    
                     flattened = np.array(cropped).flatten()
                     rmZero = flattened[flattened!=0]
                     med = np.median(rmZero)
